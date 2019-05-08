@@ -41,9 +41,9 @@ class tail_block(nn.Module):
         return out1, out2
 
 
-class yolo3(nn.Module):
+class yolov3(nn.Module):
     def __init__(self, input_channels, anchor_num, class_num):
-        super(yolo3, self).__init__()
+        super(yolov3, self).__init__()
         self.darknet = darknet(input_channels)
         self.tail_block1 = tail_block(1024, 512, anchor_num * (class_num + 5))
         self.tail_block2 = tail_block(512, 256, anchor_num * (class_num + 5))

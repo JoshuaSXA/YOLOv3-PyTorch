@@ -1,0 +1,26 @@
+<annotation>
+	<folder>img</folder>
+	<filename>0023.jpg</filename>
+	<path>/home/parallels/Data/img/0023.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>3264</width>
+		<height>2448</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>luxiang</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>869</xmin>
+			<ymin>361</ymin>
+			<xmax>2669</xmax>
+			<ymax>2068</ymax>
+		</bndbox>
+	</object>
+</annotation>
