@@ -95,4 +95,16 @@
 			<ymax>2905</ymax>
 		</bndbox>
 	</object>
+	<object>
+		<name>luxiang</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>1493</xmin>
+			<ymin>2570</ymin>
+			<xmax>1897</xmax>
+			<ymax>2907</ymax>
+		</bndbox>
+	</object>
 </annotation>

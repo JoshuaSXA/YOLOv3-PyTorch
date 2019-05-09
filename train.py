@@ -20,5 +20,5 @@ def train_net(net, epochs=10, batch_size=4,lr=0.1, val_percent=0.05, save_cp=Tru
 
 
 if __name__ == '__main__':
-    net = yolo_layer(input_channels=3, anchor_num=3, class_num=2)
+    net = YOLO(input_channels=3, anchor_num=3, class_num=2)
     train_net(net)
