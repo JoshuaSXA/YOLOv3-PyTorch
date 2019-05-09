@@ -8,26 +8,10 @@ import glob
 from torchvision import transforms
 import torch.utils.data as Data
 from xml.dom.minidom import parse
-import xml.dom.minidom
-
-# parse the xml file
-def label_parser(label_path):
-    dom_tree = parse(label_path).documentElement
-    objects = dom_tree.getElementsByTagName("object")
-    bounding_boxes = []
-    for obj in objects:
-        name = obj.getElementsByTagName("name")[0].childNodes[0].data
-        xmin = int(obj.getElementsByTagName("xmin")[0].childNodes[0].data)
-        ymin = int(obj.getElementsByTagName("ymin")[0].childNodes[0].data)
-        xmax = int(obj.getElementsByTagName("xmax")[0].childNodes[0].data)
-        ymax = int(obj.getElementsByTagName("ymax")[0].childNodes[0].data)
-        bbox = {'name':name, 'xmin':xmin, 'ymin':ymin, 'xmax':xmax, 'ymax':ymax}
-        bounding_boxes.append(bbox)
-    return bounding_boxes
 
 
 # data augmentation
-class data_aug():
+class DataAug():
     def __init__(self, random_flip=0.5, random_crop=0.3, random_rotate=0.2, gaussian_blur=0.2):
         self._random_flip = random_flip
         self._random_crop = random_crop
@@ -120,35 +104,65 @@ class data_aug():
         return img, bboxes
 
 
-
 # dataset
 class CustomDataset(Data.Dataset):
     def __len__(self):
         return len(self._img_frames)
 
-    def __init__(self, image_frames, label_set, transform=None):
+    def __init__(self, image_frames, label_set, transform=False):
         super(CustomDataset, self).__init__()
         self._img_frames = image_frames
         self._label_set = label_set
         self._transform = transform
-        self._data_aug = data_aug()
+        self._data_aug = DataAug()
+
+    # parse the xml file
+    def label_parser(self, label_path):
+        dom_tree = parse(label_path).documentElement
+        objects = dom_tree.getElementsByTagName("object")
+        bounding_boxes = []
+        for obj in objects:
+            name = obj.getElementsByTagName("name")[0].childNodes[0].data
+            xmin = int(obj.getElementsByTagName("xmin")[0].childNodes[0].data)
+            ymin = int(obj.getElementsByTagName("ymin")[0].childNodes[0].data)
+            xmax = int(obj.getElementsByTagName("xmax")[0].childNodes[0].data)
+            ymax = int(obj.getElementsByTagName("ymax")[0].childNodes[0].data)
+            bbox = {'name': name, 'xmin': xmin, 'ymin': ymin, 'xmax': xmax, 'ymax': ymax}
+            bounding_boxes.append(bbox)
+        return bounding_boxes
+
+    def data_transform(self, img, bboxes_list):
+        img = np.array(img).astype("float32") / 255.0
+        img = torch.from_numpy(img).permute(2, 0, 1)
+        bboxes = np.zeros(shape=(len(bboxes_list), 5)).astype(np.int32)
+        for i in range(len(bboxes_list)):
+            bboxes[i] = [0 if bboxes_list[i]['name'] == "xiangla" else 1, bboxes_list[i]['xmin'],
+                         bboxes_list[i]['ymin'], bboxes_list[i]['xmax'], bboxes_list[i]['ymax']]
+        bboxes = torch.from_numpy(bboxes)
+        return img, bboxes
+
 
     def __getitem__(self, index):
         img_path = self._img_frames[index]
         img = Image.open(img_path)
         label_path = self._label_set[index]
-        bboxes = label_parser(label_path)
+        bboxes = self.label_parser(label_path)
         # resize the image to fixed size
         img, bboxes = self._data_aug.img_resize(img, bboxes, (512, 512))
         # random transform for data augmentation
         if self._transform:
             img, bboxes = self._data_aug.transform(img, bboxes)
-        img = np.array(img).astype("float32") / 255
-        return (img, bboxes)
+        return self.data_transform(img, bboxes)
+
+def my_collate(batch):
+    data = [item[0] for item in batch]
+    target = [item[1] for item in batch]
+    return (data, target)
+
 
 
 class MyDataLoader(object):
-    def __init__(self, img_path, label_path, split_ratio=0.05, transform=None):
+    def __init__(self, img_path, label_path, split_ratio=0.05, transform=False):
         img_frames = sorted(glob.glob(os.path.join(img_path, '*')))
         label_set = sorted(glob.glob(os.path.join(label_path, '*')))
         self._split_ratio = split_ratio
@@ -166,12 +180,21 @@ class MyDataLoader(object):
         return {"image": train_img_frames, "label": train_label_set}, {"image": val_img_frames, "label": val_label_set}
 
     def get_train_dataloader(self, batch_size=4, shuffle=True, num_works=4):
-        return Data.DataLoader(self._train_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_works)
+        return Data.DataLoader(self._train_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_works, collate_fn=my_collate)
 
     def get_val_dataloader(self, batch_size=4, num_works=4):
         return Data.DataLoader(self._val_dataset, batch_size=batch_size, num_workers=num_works)
 
 
+
+
+# image_frames = sorted(glob.glob('../data/img/*'))
+# label_set = sorted(glob.glob('../data/label/*'))
+#
+# dataset = CustomDataset(image_frames, label_set)
+#
+# for (img, bboxes) in dataset:
+#     print(bboxes)
 
 
 
