@@ -44,7 +44,7 @@ class YOLOLoss(nn.Module):
 
         if target is not None:
             # get the parsed target
-            mask, void_mask, target_x, target_y, target_w, target_h, target_conf, target_cls = self.get_target(target, scaled_anchors, input_w, input_h, self._ignore_th)
+            mask, void_mask, target_x, target_y, target_w, target_h, target_conf, target_cls = self.parse_target(target, scaled_anchors, input_w, input_h, self._ignore_th)
             if torch.cuda.is_available():
                 # use GPU
                 mask, void_mask = mask.cuda(), void_mask.cuda()
@@ -62,7 +62,7 @@ class YOLOLoss(nn.Module):
             loss_cls = self._bce_loss(cls_prob[mask == 1], target_cls[mask == 1]) / n_mask
             # total loss
             loss = (loss_x + loss_y) * self._lambda_xy + (loss_w + loss_h) * self._lambda_wh + loss_conf * self._lambda_conf + loss_cls * self._lambda_cls
-            return loss, loss_x, loss_y, loss_w, loss_h, loss_conf, loss_cls
+            return loss, loss_x.item(), loss_y.item(), loss_w.item(), loss_h.item(), loss_conf.item(), loss_cls.item()
         else:
             FloatTensor = torch.cuda.FloatTensor if x.is_cuda else torch.FloatTensor
             LongTensor = torch.cuda.LongTensor if x.is_cuda else torch.LongTensor
@@ -87,7 +87,7 @@ class YOLOLoss(nn.Module):
 
 
     def parse_target(self, target, anchors, input_w, input_h, ignore_th):
-        batch_size = target.size(0)
+        batch_size = len(target)
         # allocate tensors to store the parsed results
         mask = torch.zeros(batch_size, self._anchor_num, input_h, input_w, requires_grad=False)
         void_mask = torch.ones(batch_size, self._anchor_num, input_h, input_w, requires_grad=False)
@@ -98,14 +98,15 @@ class YOLOLoss(nn.Module):
         target_conf = torch.zeros(batch_size, self._anchor_num, input_h, input_w, requires_grad=False)
         target_cls = torch.zeros(batch_size, self._anchor_num, input_h, input_w, self._classes_num, requires_grad=False)
         for batch in range(batch_size):
-            for obj in range(target.size(1)):
-                if target[batch_size, obj].sum() == 0:
+            for obj in range(target[batch].size(0)):
+                if target[batch][obj].sum() == 0:
                     continue
                 # the position relative to box
-                gt_x = target[batch, obj, 1] * input_w
-                gt_y = target[batch, obj, 2] * input_h
-                gt_w = target[batch, obj, 3] * input_w
-                gt_h = target[batch, obj, 4] * input_h
+                gt_x = target[batch][obj, 1] * input_w
+                gt_y = target[batch][obj, 2] * input_h
+                gt_w = target[batch][obj, 3] * input_w
+                gt_h = target[batch][obj, 4] * input_h
+
                 # get grid box indices
                 gt_i = int(gt_x)
                 gt_j = int(gt_y)
@@ -132,12 +133,11 @@ class YOLOLoss(nn.Module):
                     # object
                     target_conf[batch, best_anchors, gt_j, gt_i] = 1
                     # One-hot encoding of label
-                    target_cls[batch, best_anchors, gt_j, gt_i, int(target[batch, obj, 0])] = 1
+                    target_cls[batch, best_anchors, gt_j, gt_i, int(target[batch][obj, 0])] = 1
                 else:
                     print('Step {0} out of bound'.format(batch))
                     print('gj: {0}, height: {1} | gi: {2}, width: {3}'.format(gt_j, input_h, gt_i, input_w))
                     continue
-
         return mask, void_mask, target_x, target_y, target_w, target_h, target_conf, target_cls
 
 

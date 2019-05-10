@@ -12,10 +12,11 @@ class CustomDataset(Data.Dataset):
     def __len__(self):
         return len(self._img_frames)
 
-    def __init__(self, image_frames, label_set, transform=True):
+    def __init__(self, image_frames, label_set, img_size=(512, 512), transform=False):
         super(CustomDataset, self).__init__()
         self._img_frames = image_frames
         self._label_set = label_set
+        self._img_size = img_size
         self._transform = transform
         self._data_aug = DataAug()
 
@@ -55,7 +56,7 @@ class CustomDataset(Data.Dataset):
         label_path = self._label_set[index]
         bboxes = self.label_parser(label_path, pad)
         # resize the image to fixed size
-        img, bboxes = self._data_aug.img_resize(img, bboxes, (512, 512))
+        img, bboxes = self._data_aug.img_resize(img, bboxes, self._img_size)
         # random transform for data augmentation
         if self._transform:
             img, bboxes = self._data_aug.transform(img, bboxes)
@@ -64,23 +65,22 @@ class CustomDataset(Data.Dataset):
 
 # customize the output batch data of CustomDataset
 def my_collate(batch):
-    data = [item[0] for item in batch]
+    data = torch.stack([item[0] for item in batch], 0)
     target = [item[1] for item in batch]
     return (data, target)
 
 
 class MyDataLoader(object):
-    def __init__(self, img_path, label_path, split_ratio=0.05, transform=False):
+    def __init__(self, img_path, label_path, img_size=(512, 512), split_ratio=0.05, transform=False):
         img_frames = sorted(glob.glob(os.path.join(img_path, '*')))
         label_set = sorted(glob.glob(os.path.join(label_path, '*')))
-        self._split_ratio = split_ratio
-        train_data, val_data = self.split_dataset(img_frames, label_set)
-        self._train_dataset = CustomDataset(train_data['image'], train_data['label'])
-        self._val_dataset = CustomDataset(val_data['image'], val_data['label'])
+        train_data, val_data = self.split_dataset(img_frames, label_set, split_ratio)
+        self._train_dataset = CustomDataset(train_data['image'], train_data['label'], img_size, transform=True)
+        self._val_dataset = CustomDataset(val_data['image'], val_data['label'], img_size)
 
-    def split_dataset(self, img_frames, label_set):
+    def split_dataset(self, img_frames, label_set, split_ratio):
         total_len = len(img_frames)
-        val_len = round(total_len * self._split_ratio)
+        val_len = round(total_len * split_ratio)
         train_img_frames = img_frames[:-val_len]
         train_label_set = label_set[:-val_len]
         val_img_frames = img_frames[-val_len:]

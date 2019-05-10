@@ -64,6 +64,6 @@ class YOLO(nn.Module):
         out, out2 = self.tail_block2(out)
         out = torch.cat([self.up_block2(out), dark_out1], dim=1)
         _, out3 = self.tail_block3(out)
-        return out1, out2, out3
+        return [out1, out2, out3]
 
 
